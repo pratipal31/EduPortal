@@ -1,7 +1,7 @@
 "use client";
-import { Navbar } from "@/components/pages/Navbar";
+import { Navbar } from "@/components/student/Navbar";
 import {ThreeDPhotoCarousel} from "../components/ui/3d-carousel";
-import  Carousel  from "../components/pages/Carousel";
+import  Carousel  from "../components/student/Carousel";
 export default function Home() {
   return (
   <div className="flex flex-col items-center min-h-screen bg-linear-to-b from-slate-50 to-white">

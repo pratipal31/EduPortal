@@ -52,7 +52,7 @@ export function useMediaQuery(
 
 // 🔹 Image List
 const imageUrls = [
-  "/person1.jpg",
+  "/person.jpg",
   "/person2.jpg",
   "/person3.jpg",
   "/person4.jpg",
@@ -67,7 +67,7 @@ const imageUrls = [
 const transition = { duration: 0.2, ease: [0.32, 0.72, 0, 1] }
 const transitionOverlay = { duration: 0.5, ease: [0.32, 0.72, 0, 1] }
 
-// 🔹 Carousel component
+// 🔹 Carousel Component
 const Carousel = memo(
   ({
     handleClick,
@@ -81,7 +81,7 @@ const Carousel = memo(
     isCarouselActive: boolean
   }) => {
     const isScreenSmall = useMediaQuery("(max-width: 640px)")
-    const cylinderWidth = isScreenSmall ? 1000 : 2000
+    const cylinderWidth = isScreenSmall ? 1100 : 2200 // ⬆️ Increased for better spacing
     const faceCount = cards.length
     const faceWidth = cylinderWidth / faceCount
     const radius = cylinderWidth / (2 * Math.PI)
@@ -138,7 +138,7 @@ const Carousel = memo(
                 src={imgUrl}
                 alt={`EduPortal Image ${i + 1}`}
                 layoutId={`img-${imgUrl}`}
-                className="pointer-events-none w-[280px] sm:w-[300px] md:w-[340px] lg:w-[360px] rounded-2xl object-cover shadow-xl border border-gray-200"
+                className="pointer-events-none w-[340px] sm:w-[380px] md:w-[420px] lg:w-[460px] rounded-2xl object-cover shadow-2xl border border-gray-200"
                 initial={{ filter: "blur(4px)" }}
                 animate={{ filter: "blur(0px)" }}
                 transition={transition}
@@ -204,7 +204,7 @@ export function ThreeDPhotoCarousel() {
       </AnimatePresence>
 
       {/* Carousel Display */}
-      <div className="relative h-[550px] w-full overflow-hidden">
+      <div className="relative h-[600px] w-full overflow-hidden"> {/* ⬆️ Increased height */}
         <Carousel
           handleClick={handleClick}
           controls={controls}
@@ -216,4 +216,4 @@ export function ThreeDPhotoCarousel() {
   )
 }
 
-export  default ThreeDPhotoCarousel ;
+export default ThreeDPhotoCarousel

@@ -21,8 +21,7 @@ const Carousel = () => {
               </p>
             </div>
           </section>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center min-h-[calc(100vh-6rem)]">
-          
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center min-h-[calc(50vh-6rem)]">
           {/* Text column */}
           <div className="w-full text-left space-y-6 md:space-y-8 py-8 md:py-12">
             <p className="text-lg sm:text-xl lg:text-2xl text-purple-700 leading-relaxed">
