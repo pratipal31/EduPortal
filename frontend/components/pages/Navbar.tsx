@@ -1,18 +1,26 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { useState } from "react"
-import { motion, AnimatePresence } from "motion/react"
-import { Menu, X } from "lucide-react"
+import * as React from "react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Menu, X } from "lucide-react";
+import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/nextjs";
 
 const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false)
-  const toggleMenu = () => setIsOpen(!isOpen)
+  const [isOpen, setIsOpen] = useState(false);
+  const toggleMenu = () => setIsOpen(!isOpen);
 
   return (
-    // 🔹 Make Navbar sticky at top
+    // 🔹 Sticky Navbar
     <div className="sticky top-0 z-50 flex justify-center w-full py-6 px-4 bg-transparent backdrop-blur-md">
       <div className="flex items-center justify-between px-6 py-3 md:px-10 lg:px-12 bg-white/90 rounded-full shadow-lg w-full max-w-6xl relative z-10">
+        {/* Logo */}
         <div className="flex items-center">
           <motion.div
             className="w-8 h-8 mr-6"
@@ -21,20 +29,33 @@ const Navbar = () => {
             whileHover={{ rotate: 10 }}
             transition={{ duration: 0.3 }}
           >
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 32 32"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
               <circle cx="16" cy="16" r="16" fill="url(#paint0_linear)" />
               <defs>
-                <linearGradient id="paint0_linear" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#FF9966" />
-                  <stop offset="1" stopColor="#FF5E62" />
+                <linearGradient
+                  id="paint0_linear"
+                  x1="0"
+                  y1="0"
+                  x2="32"
+                  y2="32"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop stopColor="#C084FC" /> {/* Light purple */}
+                  <stop offset="1" stopColor="#7C3AED" /> {/* Deep purple */}
                 </linearGradient>
               </defs>
             </svg>
           </motion.div>
         </div>
 
-  {/* Desktop Navigation */}
-  <nav className="hidden md:flex items-center space-x-10 lg:space-x-12">
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center space-x-10 lg:space-x-12">
           {["Home", "Pricing", "Docs", "Projects"].map((item) => (
             <motion.div
               key={item}
@@ -53,20 +74,31 @@ const Navbar = () => {
           ))}
         </nav>
 
-        {/* Desktop CTA Button */}
+        {/* Desktop Buttons */}
         <motion.div
-          className="hidden md:flex md:items-center md:ml-6"
+          className="hidden md:flex md:items-center md:space-x-4 md:ml-6"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
           whileHover={{ scale: 1.05 }}
         >
-          <a
-            href="#"
-            className="inline-flex items-center justify-center px-5 py-2 text-sm text-white bg-black rounded-full hover:bg-gray-800 transition-colors"
-          >
-            Get Started
-          </a>
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="inline-flex items-center justify-center rounded-full border border-purple-600 px-5 py-2.5 text-sm font-semibold text-purple-600 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600 transition-all duration-200">
+                Sign In
+              </button>
+            </SignInButton>
+
+            <SignUpButton mode="modal">
+              <button className="inline-flex items-center justify-center rounded-full bg-purple-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600 transition-all duration-200">
+                Join Us
+              </button>
+            </SignUpButton>
+          </SignedOut>
+
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
         </motion.div>
 
         {/* Mobile Menu Button */}
@@ -76,7 +108,11 @@ const Navbar = () => {
           onClick={toggleMenu}
           whileTap={{ scale: 0.96 }}
         >
-          <Menu className="h-6 w-6 text-gray-900" />
+          {isOpen ? (
+            <X className="h-6 w-6 text-gray-900" />
+          ) : (
+            <Menu className="h-6 w-6 text-gray-900" />
+          )}
         </motion.button>
       </div>
 
@@ -101,8 +137,9 @@ const Navbar = () => {
             >
               <X className="h-6 w-6 text-gray-900" />
             </motion.button>
+
             <div className="flex flex-col space-y-4 mt-2">
-              {['Home', 'Pricing', 'Docs', 'Projects'].map((item, i) => (
+              {["Home", "Pricing", "Docs", "Projects"].map((item, i) => (
                 <motion.div
                   key={item}
                   initial={{ opacity: 0, x: 20 }}
@@ -120,27 +157,40 @@ const Navbar = () => {
                 </motion.div>
               ))}
 
+              {/* Mobile Sign In / Sign Up */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.36 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="pt-4"
+                className="pt-6 flex flex-col space-y-3"
               >
-                <a
-                  href="#"
-                  className="inline-flex items-center justify-center w-full px-5 py-3 text-base text-white bg-black rounded-full hover:bg-gray-800 transition-colors"
-                  onClick={toggleMenu}
-                >
-                  Get Started
-                </a>
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <button className="w-full rounded-full border border-purple-600 px-5 py-2.5 text-sm font-semibold text-purple-600 hover:bg-blue-50 transition-all duration-200">
+                      Sign In
+                    </button>
+                  </SignInButton>
+
+                  <SignUpButton mode="modal">
+                    <button className="w-full rounded-full bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-purple-500 transition-all duration-200">
+                      Join Us
+                    </button>
+                  </SignUpButton>
+                </SignedOut>
+
+                <SignedIn>
+                  <div className="flex justify-center">
+                    <UserButton afterSignOutUrl="/" />
+                  </div>
+                </SignedIn>
               </motion.div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
-  )
-}
+  );
+};
 
-export { Navbar }
+export { Navbar };

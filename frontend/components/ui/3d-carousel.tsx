@@ -1,0 +1,219 @@
+"use client"
+
+import { memo, useEffect, useLayoutEffect, useMemo, useState } from "react"
+import {
+  AnimatePresence,
+  motion,
+  useAnimation,
+  useMotionValue,
+  useTransform,
+} from "framer-motion"
+
+// 🔹 Use correct layout effect for client/server rendering
+export const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect
+
+// 🔹 Media query hook
+type UseMediaQueryOptions = {
+  defaultValue?: boolean
+  initializeWithValue?: boolean
+}
+
+const IS_SERVER = typeof window === "undefined"
+
+export function useMediaQuery(
+  query: string,
+  {
+    defaultValue = false,
+    initializeWithValue = true,
+  }: UseMediaQueryOptions = {}
+): boolean {
+  const getMatches = (query: string): boolean => {
+    if (IS_SERVER) return defaultValue
+    return window.matchMedia(query).matches
+  }
+
+  const [matches, setMatches] = useState<boolean>(() => {
+    if (initializeWithValue) return getMatches(query)
+    return defaultValue
+  })
+
+  const handleChange = () => setMatches(getMatches(query))
+
+  useIsomorphicLayoutEffect(() => {
+    const matchMedia = window.matchMedia(query)
+    handleChange()
+    matchMedia.addEventListener("change", handleChange)
+    return () => matchMedia.removeEventListener("change", handleChange)
+  }, [query])
+
+  return matches
+}
+
+// 🔹 Image List
+const imageUrls = [
+  "/person1.jpg",
+  "/person2.jpg",
+  "/person3.jpg",
+  "/person4.jpg",
+  "/person5.jpg",
+  "/person6.jpeg",
+  "/person7.jpeg",
+  "/person8.jpeg",
+  "/person9.jpeg",
+  "/person10.jpeg",
+]
+
+const transition = { duration: 0.2, ease: [0.32, 0.72, 0, 1] }
+const transitionOverlay = { duration: 0.5, ease: [0.32, 0.72, 0, 1] }
+
+// 🔹 Carousel component
+const Carousel = memo(
+  ({
+    handleClick,
+    controls,
+    cards,
+    isCarouselActive,
+  }: {
+    handleClick: (imgUrl: string, index: number) => void
+    controls: any
+    cards: string[]
+    isCarouselActive: boolean
+  }) => {
+    const isScreenSmall = useMediaQuery("(max-width: 640px)")
+    const cylinderWidth = isScreenSmall ? 1000 : 2000
+    const faceCount = cards.length
+    const faceWidth = cylinderWidth / faceCount
+    const radius = cylinderWidth / (2 * Math.PI)
+    const rotation = useMotionValue(0)
+    const transform = useTransform(
+      rotation,
+      (value) => `rotate3d(0, 1, 0, ${value}deg)`
+    )
+
+    return (
+      <div
+        className="flex h-full items-center justify-center"
+        style={{
+          perspective: "1000px",
+          transformStyle: "preserve-3d",
+          willChange: "transform",
+        }}
+      >
+        <motion.div
+          drag={isCarouselActive ? "x" : false}
+          className="relative flex h-full origin-center cursor-grab justify-center active:cursor-grabbing"
+          style={{
+            transform,
+            rotateY: rotation,
+            width: cylinderWidth,
+            transformStyle: "preserve-3d",
+          }}
+          onDrag={(_, info) =>
+            isCarouselActive &&
+            rotation.set(rotation.get() + info.offset.x * 0.05)
+          }
+          onDragEnd={(_, info) =>
+            isCarouselActive &&
+            controls.start({
+              rotateY: rotation.get() + info.velocity.x * 0.05,
+              transition: { type: "spring", stiffness: 100, damping: 30 },
+            })
+          }
+          animate={controls}
+        >
+          {cards.map((imgUrl, i) => (
+            <motion.div
+              key={`card-${i}`}
+              className="absolute flex h-full origin-center items-center justify-center p-3"
+              style={{
+                width: `${faceWidth}px`,
+                transform: `rotateY(${
+                  i * (360 / faceCount)
+                }deg) translateZ(${radius}px)`,
+              }}
+              onClick={() => handleClick(imgUrl, i)}
+            >
+              <motion.img
+                src={imgUrl}
+                alt={`EduPortal Image ${i + 1}`}
+                layoutId={`img-${imgUrl}`}
+                className="pointer-events-none w-[280px] sm:w-[300px] md:w-[340px] lg:w-[360px] rounded-2xl object-cover shadow-xl border border-gray-200"
+                initial={{ filter: "blur(4px)" }}
+                animate={{ filter: "blur(0px)" }}
+                transition={transition}
+              />
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    )
+  }
+)
+
+Carousel.displayName = "Carousel"
+
+// 🔹 Main Component
+export function ThreeDPhotoCarousel() {
+  const [activeImg, setActiveImg] = useState<string | null>(null)
+  const [isCarouselActive, setIsCarouselActive] = useState(true)
+  const controls = useAnimation()
+  const cards = useMemo(() => imageUrls, [])
+
+  const handleClick = (imgUrl: string) => {
+    setActiveImg(imgUrl)
+    setIsCarouselActive(false)
+    controls.stop()
+  }
+
+  const handleClose = () => {
+    setActiveImg(null)
+    setIsCarouselActive(true)
+  }
+
+  return (
+    <motion.div layout className="relative">
+      <AnimatePresence mode="sync">
+        {activeImg && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            layoutId={`img-container-${activeImg}`}
+            onClick={handleClose}
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-5 md:p-20 rounded-3xl"
+            style={{ willChange: "opacity" }}
+            transition={transitionOverlay}
+          >
+            <motion.img
+              layoutId={`img-${activeImg}`}
+              src={activeImg}
+              className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              transition={{
+                duration: 0.4,
+                ease: [0.25, 0.1, 0.25, 1],
+              }}
+              style={{
+                willChange: "transform",
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Carousel Display */}
+      <div className="relative h-[550px] w-full overflow-hidden">
+        <Carousel
+          handleClick={handleClick}
+          controls={controls}
+          cards={cards}
+          isCarouselActive={isCarouselActive}
+        />
+      </div>
+    </motion.div>
+  )
+}
+
+export  default ThreeDPhotoCarousel ;
