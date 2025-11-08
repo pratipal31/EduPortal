@@ -1,5 +1,5 @@
 "use client";
-import { Navbar } from "@/components/student/Navbar";
+import { Navbar}  from "@/components/student/Navbar";
 import {ThreeDPhotoCarousel} from "../components/ui/3d-carousel";
 import  Carousel  from "../components/student/Carousel";
 export default function Home() {

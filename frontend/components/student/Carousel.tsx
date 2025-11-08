@@ -54,9 +54,6 @@ const Carousel = () => {
             </SignUpButton>
           </SignedOut>
 
-          <SignedIn>
-            <UserButton afterSignOutUrl="/" />
-          </SignedIn>
           </div>
 
           {/* Carousel column */}
