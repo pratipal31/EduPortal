@@ -3,6 +3,7 @@ import * as React from "react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Menu, X, GraduationCap, BookOpen } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   SignedIn,
   SignedOut,
@@ -13,9 +14,13 @@ import {
 } from "@clerk/nextjs";
 
 const Navbar = () => {
+  
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<"teacher" | "student" | null>(null);
+  const [selectedRole, setSelectedRole] = useState<
+    "teacher" | "student" | null
+  >(null);
   const { openSignUp } = useClerk();
   const { user } = useUser();
 
@@ -31,7 +36,7 @@ const Navbar = () => {
     console.log("💾 Stored in localStorage:", {
       role,
       time: Date.now(),
-      verification: localStorage.getItem("pendingUserRole")
+      verification: localStorage.getItem("pendingUserRole"),
     });
     setShowRoleModal(false);
 
@@ -44,38 +49,43 @@ const Navbar = () => {
   useEffect(() => {
     const syncNewUser = async () => {
       console.log("🔍 useEffect triggered, user:", user ? "exists" : "null");
-      
+
       if (user) {
         const pendingRole = localStorage.getItem("pendingUserRole");
         const roleTime = localStorage.getItem("pendingUserRoleTime");
         const hasSynced = localStorage.getItem(`synced_${user.id}`);
-        
-        console.log("📦 localStorage check:", { pendingRole, roleTime, hasSynced });
-        
+
+        console.log("📦 localStorage check:", {
+          pendingRole,
+          roleTime,
+          hasSynced,
+        });
+
         // Skip if already synced
         if (hasSynced) {
           console.log("✓ User already synced, skipping");
           return;
         }
-        
+
         // Check if there's a pending role and it's recent (within last 5 minutes)
         if (pendingRole && roleTime) {
           const timeDiff = Date.now() - parseInt(roleTime);
           console.log("⏱️ Time difference:", timeDiff, "ms");
-          
-          if (timeDiff < 5 * 60 * 1000) { // 5 minutes
+
+          if (timeDiff < 5 * 60 * 1000) {
+            // 5 minutes
             console.log("🔄 New user detected, calling sync API...");
             console.log("📤 Sending data:", {
               clerkId: user.id,
               email: user.primaryEmailAddress?.emailAddress,
               role: pendingRole,
             });
-            
+
             try {
-              const response = await fetch('/api/sync-user', {
-                method: 'POST',
+              const response = await fetch("/api/sync-user", {
+                method: "POST",
                 headers: {
-                  'Content-Type': 'application/json',
+                  "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
                   clerkId: user.id,
@@ -87,13 +97,20 @@ const Navbar = () => {
               console.log("📥 Response status:", response.status);
               const data = await response.json();
               console.log("📥 Response data:", data);
-              
+
               if (data.success) {
                 console.log("✅ User synced to Supabase:", data);
                 // Mark as synced and clear pending role
-                localStorage.setItem(`synced_${user.id}`, 'true');
+                localStorage.setItem(`synced_${user.id}`, "true");
                 localStorage.removeItem("pendingUserRole");
                 localStorage.removeItem("pendingUserRoleTime");
+
+                // 🔹 Redirect based on role
+                if (pendingRole === "teacher") {
+                  router.push("/frontend/app/pages/Teacher/Dashboard");
+                } else if (pendingRole === "student") {
+                  router.push("/frontend/app/pages/Student/Dashboard");
+                }
               } else {
                 console.error("❌ Failed to sync user:", data.error);
               }

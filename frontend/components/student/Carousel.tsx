@@ -46,13 +46,6 @@ const Carousel = () => {
               </li>
             </ul>
 
-              <SignedOut>
-            <SignUpButton mode="modal">
-              <button className="inline-flex items-center justify-center rounded-full bg-purple-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600 transition-all duration-200">
-                Join Us
-              </button>
-            </SignUpButton>
-          </SignedOut>
 
           </div>
 

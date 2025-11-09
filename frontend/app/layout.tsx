@@ -2,7 +2,7 @@
 
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-
+import  AuthRedirector  from "@/components/AuthRedirector";
 export default function RootLayout({
   children,
 }: {
@@ -14,7 +14,9 @@ export default function RootLayout({
         <head>
           <title>EduPortal - Empowering Teachers, Inspiring Learning</title>
         </head>
-        <body>{children}</body>
+        <body>
+          <AuthRedirector />
+          {children}</body>
       </html>
     </ClerkProvider>
   );
