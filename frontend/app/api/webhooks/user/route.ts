@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
 
   try {
     // Check if user already exists
-    const { data: existingUser } = await supabase
+    const { data: existingUser } = await getSupabaseClient
       .from("users")
       .select("*")
       .eq("clerk_id", id)
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     }
 
     // Insert new user (this is a fallback if sync-user API didn't run)
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient
       .from("users")
       .insert({
         clerk_id: id,

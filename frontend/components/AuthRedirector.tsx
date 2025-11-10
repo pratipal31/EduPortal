@@ -28,16 +28,23 @@ export default function AuthRedirector() {
 
     // Avoid redirecting from dashboard pages or auth pages
     const skipPaths = [
-      "/TeacherDashboard",
-      "/StudentDashboard", 
+      "/pages-Teacher/TeacherDashboard",
+      "/pages-Student/StudentDashboard", 
       "/sign-up", 
       "/sign-in",
       "/api"
     ]
-    if (skipPaths.some((p) => pathname?.startsWith(p))) return
+    
+    // Check if current path should be skipped
+    if (skipPaths.some((p) => pathname?.startsWith(p))) {
+      console.log("⏭️ Skipping redirect, already on dashboard:", pathname)
+      return
+    }
 
     const getUserRoleAndRedirect = async () => {
       try {
+        console.log("🔍 Fetching user role for:", user.id)
+        
         // ALWAYS fetch from database as the source of truth
         const { data: userData, error } = await supabase
           .from("users")
@@ -46,20 +53,36 @@ export default function AuthRedirector() {
           .single()
 
         if (error) {
-          console.error("❌ Error fetching user role from DB:", error)
-          // If user doesn't exist in DB, default to student
-          console.log("⚠️ User not found in DB, defaulting to student")
-          setHasRedirected(true)
-          router.push("/StudentDashboard")
-          return
+          // Improve error logging with more context
+          console.error("❌ Error fetching user role from DB:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+            userId: user.id
+          });
+          
+          // Redirect to home page if we can't fetch user data
+          console.log("🏠 Redirecting to home page due to data fetch error");
+          setHasRedirected(true);
+          router.push("/");
+          return;
         }
 
-        const role = userData?.role || "student"
+        if (!userData) {
+          console.log("⚠️ No user data found in database");
+          setHasRedirected(true);
+          router.push("/");
+          return;
+        }
+
+        const role = userData.role
         
         console.log("✅ Role fetched from database:", {
           clerkId: user.id,
           email: user.emailAddresses[0]?.emailAddress,
-          role: role
+          role: role,
+          currentPath: pathname
         })
 
         // Clear any stale localStorage data
@@ -73,16 +96,16 @@ export default function AuthRedirector() {
         
         if (role === "teacher") {
           console.log("👨‍🏫 Redirecting to Teacher Dashboard")
-          router.push("/TeacherDashboard")
+          router.push("/pages-Teacher/TeacherDashboard")
         } else {
           console.log("👨‍🎓 Redirecting to Student Dashboard")
-          router.push("/StudentDashboard")
+          router.push("/pages-Student/StudentDashboard")
         }
       } catch (error) {
         console.error("❌ Error in getUserRoleAndRedirect:", error)
         // On error, default to student dashboard
         setHasRedirected(true)
-        router.push("/StudentDashboard")
+        router.push("/pages-Student/StudentDashboard")
       }
     }
 

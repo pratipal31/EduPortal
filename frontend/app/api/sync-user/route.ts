@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     console.log("📝 Checking if user exists in Supabase...");
 
     // Check if user already exists
-    const { data: existingUser, error: fetchError } = await supabase
+    const { data: existingUser, error: fetchError } = await getSupabaseClient
       .from("users")
       .select("*")
       .eq("clerk_id", clerkId)
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     console.log("➕ Inserting new user to Supabase...");
 
     // Insert new user
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient
       .from("users")
       .insert({
         clerk_id: clerkId,

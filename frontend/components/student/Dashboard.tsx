@@ -102,27 +102,75 @@ export default function StudentDashboard() {
   const [attemptQuestions, setAttemptQuestions] = useState<Question[]>([]);
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!user?.id) return;
+  const fetchUserProfile = async () => {
+    if (!user?.id) return;
 
-      try {
-        const { data, error } = await supabase
+    try {
+      // First check if the user exists
+      const { data: users, error: queryError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("clerk_id", user.id);
+
+      if (queryError) {
+                console.error("❌ Error querying users:", queryError);
+
+        throw new Error(queryError.message);
+      }
+
+      // Handle no results - CREATE the user if they don't exist
+      if (!users || users.length === 0) {
+        console.warn(`No user profile found for clerk_id=${user.id}, creating one...`);
+        
+        // Create the user in the database
+        const { data: newUser, error: insertError } = await supabase
           .from("users")
-          .select("*")
-          .eq("clerk_id", user.id)
+          .insert({
+            clerk_id: user.id,
+            email: user.emailAddresses[0]?.emailAddress || "",
+            role: "student", // Default to student role
+          })
+          .select()
           .single();
 
-        if (error) throw error;
-        setUserProfile(data);
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-      }
-    };
+        if (insertError) {
+console.error("❌ Error creating user:", {
+            message: insertError.message,
+            details: insertError.details,
+            hint: insertError.hint,
+            code: insertError.code
+          });          return;
+        }
 
-    if (isLoaded && user) {
-      fetchUserProfile();
+                console.log("✅ User created successfully:", newUser);
+
+        setUserProfile(newUser);
+        return;
+      }
+
+      // Handle multiple results (shouldn't happen, but just in case)
+      if (users.length > 1) {
+        console.warn(`Multiple profiles found for clerk_id=${user.id}`);
+      }
+
+      // Take the first result
+            console.log("✅ User profile loaded:", users[0]);
+ 
+      setUserProfile(users[0]);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      console.error("Error fetching user profile:", {
+        message: errorMessage,
+        clerkId: user.id,
+        error: err
+      });
     }
-  }, [user, isLoaded]);
+  };
+
+  if (isLoaded && user) {
+    fetchUserProfile();
+  }
+}, [user, isLoaded]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -346,9 +394,14 @@ export default function StudentDashboard() {
 
     switch (question.question_type) {
       case "multiple_choice":
+        // Parse options from JSON string if it's not already an array
+        const options: string[] = Array.isArray(question.options) 
+          ? question.options 
+          : (typeof question.options === 'string' ? JSON.parse(question.options) : []);
+
         return (
           <div className="space-y-3">
-            {question.options?.map((option, idx) => (
+            {options.map((option: string, idx: number) => (
               <button
                 key={idx}
                 onClick={() => handleAnswer(question.id, option)}
@@ -763,11 +816,11 @@ export default function StudentDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Student Dashboard
+                  Welcome back, {user?.firstName || userProfile?.email}! 👋
               </h1>
               <p className="text-gray-600 mt-1">
-                Welcome back, {user?.firstName || userProfile?.email}! 👋
-              </p>
+                 Student Dashboard
+              </p>  
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 bg-blue-100 px-4 py-2 rounded-full">
