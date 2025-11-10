@@ -87,11 +87,35 @@ export default function ResultsPage() {
 
   const filteredResults = selectedQuiz === "all" ? results : results.filter((r) => r.quiz.id === selectedQuiz)
 
+  // Truncate student email for better display
+  const truncateEmail = (email: string, maxLength: number = 12) => {
+    const [name, domain] = email.split("@")
+    if (name.length <= maxLength) return name
+    return name.substring(0, maxLength) + "..."
+  }
+
   const chartData = filteredResults.map((r) => ({
-    name: r.studentEmail.split("@")[0],
+    name: truncateEmail(r.studentEmail),
+    fullEmail: r.studentEmail,
     percentage: Math.round(r.attempt.percentage),
-    passed: r.attempt.passed ? "Passed" : "Failed",
+    status: r.attempt.passed ? "Passed" : "Failed",
   }))
+
+  // Custom tooltip for chart
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-800">{payload[0].payload.fullEmail}</p>
+          <p className="text-indigo-600">Score: {payload[0].value}%</p>
+          <p className={`text-sm font-medium ${payload[0].payload.status === "Passed" ? "text-green-600" : "text-red-600"}`}>
+            {payload[0].payload.status}
+          </p>
+        </div>
+      )
+    }
+    return null
+  }
 
   if (!isLoaded || loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>
 
@@ -128,15 +152,32 @@ export default function ResultsPage() {
         {/* Chart */}
         {chartData.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mb-6">
-            <h2 className="text-xl font-bold mb-4">Performance Overview</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={60} />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="percentage" fill="#6366f1" name="Percentage (%)" />
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Student Performance Overview</h2>
+            <p className="text-sm text-gray-500 mb-4">Hover over bars for full student details</p>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="name" 
+                  angle={-45} 
+                  textAnchor="end" 
+                  height={80}
+                  tick={{ fontSize: 12 }}
+                  interval={0}
+                />
+                <YAxis 
+                  label={{ value: 'Score (%)', angle: -90, position: 'insideLeft' }}
+                  tick={{ fontSize: 12 }}
+                  domain={[0, 100]}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                <Bar 
+                  dataKey="percentage" 
+                  fill="#6366f1" 
+                  name="Score (%)" 
+                  radius={[8, 8, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -144,37 +185,41 @@ export default function ResultsPage() {
 
         {/* Results Table */}
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 overflow-x-auto">
-          <h2 className="text-xl font-bold mb-4">Detailed Results</h2>
-          <table className="w-full text-sm">
-            <thead className="border-b border-gray-200">
-              <tr>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Student</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Quiz</th>
-                <th className="text-center py-3 px-4 font-semibold text-gray-700">Score</th>
-                <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredResults.map((r) => (
-                <tr key={r.attempt.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-4">{r.studentEmail}</td>
-                  <td className="py-3 px-4">{r.quiz.title}</td>
-                  <td className="py-3 px-4 text-center font-semibold">{Math.round(r.attempt.percentage)}%</td>
-                  <td className="py-3 px-4 text-center">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        r.attempt.passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {r.attempt.passed ? "Passed" : "Failed"}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">{new Date(r.attempt.completed_at).toLocaleDateString()}</td>
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Detailed Results</h2>
+          {filteredResults.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No results found for the selected filter.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="border-b border-gray-200 bg-gray-50">
+                <tr>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Student</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Quiz</th>
+                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Score</th>
+                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredResults.map((r) => (
+                  <tr key={r.attempt.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                    <td className="py-3 px-4 text-gray-800">{r.studentEmail}</td>
+                    <td className="py-3 px-4 text-gray-800">{r.quiz.title}</td>
+                    <td className="py-3 px-4 text-center font-semibold text-gray-900">{Math.round(r.attempt.percentage)}%</td>
+                    <td className="py-3 px-4 text-center">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          r.attempt.passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {r.attempt.passed ? "Passed" : "Failed"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-gray-600">{new Date(r.attempt.completed_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

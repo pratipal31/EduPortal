@@ -88,10 +88,16 @@ export default function AnalyticsPage() {
     fetchAnalytics()
   }, [userProfile, supabase])
 
+  // Truncate quiz titles for better display
+  const truncateTitle = (title: string, maxLength: number = 15) => {
+    return title.length > maxLength ? title.substring(0, maxLength) + "..." : title
+  }
+
   const quizPerformance = quizzes.map((quiz) => {
     const quizAttempts = attempts.filter((a) => a.quiz_id === quiz.id)
     return {
-      name: quiz.title,
+      name: truncateTitle(quiz.title),
+      fullName: quiz.title,
       avgScore:
         quizAttempts.length > 0
           ? Math.round(quizAttempts.reduce((sum, a) => sum + a.percentage, 0) / quizAttempts.length)
@@ -112,6 +118,25 @@ export default function AnalyticsPage() {
       fill: "#ef4444",
     },
   ]
+
+  // Custom tooltip for bar chart
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-800">{payload[0].payload.fullName}</p>
+          <p className="text-indigo-600">Average Score: {payload[0].value}%</p>
+          <p className="text-gray-600 text-sm">Attempts: {payload[0].payload.attempts}</p>
+        </div>
+      )
+    }
+    return null
+  }
+
+  // Custom label for pie chart
+  const renderCustomLabel = (entry: any) => {
+    return `${entry.name}: ${entry.value}`
+  }
 
   if (!isLoaded || loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>
 
@@ -163,29 +188,54 @@ export default function AnalyticsPage() {
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <h2 className="text-xl font-bold mb-4">Quiz Performance</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={quizPerformance}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="avgScore" fill="#6366f1" name="Avg Score (%)" />
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Average Score by Quiz</h2>
+            <p className="text-sm text-gray-500 mb-4">Hover over bars for full quiz names</p>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={quizPerformance} margin={{ top: 5, right: 20, left: 0, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="name" 
+                  angle={-45} 
+                  textAnchor="end" 
+                  height={80}
+                  tick={{ fontSize: 12 }}
+                  interval={0}
+                />
+                <YAxis 
+                  label={{ value: 'Score (%)', angle: -90, position: 'insideLeft' }}
+                  tick={{ fontSize: 12 }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                <Bar dataKey="avgScore" fill="#6366f1" name="Avg Score (%)" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <h2 className="text-xl font-bold mb-4">Pass/Fail Distribution</h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Pass/Fail Distribution</h2>
+            <p className="text-sm text-gray-500 mb-4">Overall student performance status</p>
+            <ResponsiveContainer width="100%" height={320}>
               <PieChart>
-                <Pie data={passFailData} cx="50%" cy="50%" labelLine={false} label>
+                <Pie 
+                  data={passFailData} 
+                  cx="50%" 
+                  cy="50%" 
+                  labelLine={false} 
+                  label={renderCustomLabel}
+                  outerRadius={100}
+                  dataKey="value"
+                >
                   {passFailData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  formatter={(value) => <span className="text-sm font-medium">{value}</span>}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>

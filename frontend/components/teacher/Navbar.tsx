@@ -9,8 +9,6 @@ import {
   FileQuestion,
   Users,
   BarChart3,
-  Settings,
-  HelpCircle,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -79,19 +77,6 @@ export default function TeacherNavbar({
       name: "Leaderboard",
       icon: Award,
       path: "/pages-Teacher/Leaderboard",
-    },
-  ];
-
-  const bottomItems: NavItem[] = [
-    {
-      name: "Settings",
-      icon: Settings,
-      path: "/pages-Teacher/Settings",
-    },
-    {
-      name: "Help",
-      icon: HelpCircle,
-      path: "/pages-Teacher/Help",
     },
   ];
 
@@ -215,38 +200,9 @@ export default function TeacherNavbar({
         </div>
       </nav>
 
-      {/* Bottom Section */}
+      {/* Bottom Section - Logout Only */}
       <div className="border-t border-indigo-700/50">
         <div className="space-y-1 px-3 py-4">
-          {bottomItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.path;
-
-            return (
-              <button
-                key={item.path}
-                onClick={() => handleNavigation(item.path)}
-                className={`w-full flex items-center ${
-                  isCollapsed ? "justify-center" : "justify-start"
-                } space-x-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
-                  isActive
-                    ? "bg-white/20 text-white"
-                    : "text-indigo-200 hover:bg-white/10 hover:text-white"
-                }`}
-                title={isCollapsed ? item.name : ""}
-              >
-                <Icon
-                  className={`${
-                    isCollapsed ? "w-6 h-6" : "w-5 h-5"
-                  } flex-shrink-0 text-indigo-300 group-hover:text-white transition-colors`}
-                />
-                {!isCollapsed && (
-                  <span className="font-medium text-sm">{item.name}</span>
-                )}
-              </button>
-            );
-          })}
-
           {/* Logout Button */}
           <button
             onClick={handleLogout}
