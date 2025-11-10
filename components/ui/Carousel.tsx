@@ -50,8 +50,8 @@ const Carousel = () => {
           </div>
 
           {/* Carousel column - Fully responsive */}
-          <div className="w-full flex items-center justify-center py-4 md:py-0">
-            <div className="w-full h-[400px] sm:h-[450px] md:h-[500px] lg:h-[600px] xl:h-[700px] rounded-2xl overflow-hidden">
+          <div className="w-full flex items-center justify-center py-4 md:py-0 min-h-[500px] sm:min-h-[550px] md:min-h-0">
+            <div className="w-full h-[450px] sm:h-[500px] md:h-[500px] lg:h-[600px] xl:h-[700px] rounded-2xl overflow-visible">
               <ThreeDPhotoCarousel />
             </div>
           </div>
