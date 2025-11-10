@@ -1,6 +1,6 @@
 "use client";
 import { Navbar}  from "@/components/ui/Navbar";
-import  Carousel  from "@/components/ui/Carousel";
+import  Carousel  from "../components/ui/Carousel";
 import AuthRedirector from "@/components/AuthRedirector";
 export default function Home() {
   return (
