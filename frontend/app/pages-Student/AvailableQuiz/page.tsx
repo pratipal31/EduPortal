@@ -118,21 +118,25 @@ export default function AvailableQuizzesPage() {
 
           if (attemptsData) {
             const stats: AttemptStats = {}
-            attemptsData.forEach((attempt) => {
-              if (!stats[attempt.quiz_id]) {
-                stats[attempt.quiz_id] = {
-                  attempts: 0,
-                  bestScore: 0,
-                  lastAttempt: "",
-                }
-              }
-              stats[attempt.quiz_id].attempts++
-              const score = (attempt.score / attempt.total_points) * 100
-              if (score > stats[attempt.quiz_id].bestScore) {
-                stats[attempt.quiz_id].bestScore = score
-              }
-              stats[attempt.quiz_id].lastAttempt = attempt.completed_at
-            })
+           if (attemptsData) {
+  const stats: AttemptStats = {}
+  attemptsData.forEach((attempt: Pick<QuizAttempt, "quiz_id" | "score" | "total_points" | "completed_at">) => {
+    if (!stats[attempt.quiz_id]) {
+      stats[attempt.quiz_id] = {
+        attempts: 0,
+        bestScore: 0,
+        lastAttempt: "",
+      }
+    }
+    stats[attempt.quiz_id].attempts++
+    const score = (attempt.score / attempt.total_points) * 100
+    if (score > stats[attempt.quiz_id].bestScore) {
+      stats[attempt.quiz_id].bestScore = score
+    }
+    stats[attempt.quiz_id].lastAttempt = attempt.completed_at
+  })
+  setAttemptStats(stats)
+}
             setAttemptStats(stats)
           }
         }

@@ -17,8 +17,11 @@ export async function POST(req: Request) {
 
     console.log("📝 Checking if user exists in Supabase...");
 
-    // Check if user already exists
-    const { data: existingUser, error: fetchError } = await getSupabaseClient
+    // ✅ Initialize supabase client properly
+    const supabase = getSupabaseClient();
+
+    // ✅ Check if user already exists
+    const { data: existingUser, error: fetchError } = await supabase
       .from("users")
       .select("*")
       .eq("clerk_id", clerkId)
@@ -39,8 +42,8 @@ export async function POST(req: Request) {
 
     console.log("➕ Inserting new user to Supabase...");
 
-    // Insert new user
-    const { data, error } = await getSupabaseClient
+    // ✅ Insert new user
+    const { data, error } = await supabase
       .from("users")
       .insert({
         clerk_id: clerkId,

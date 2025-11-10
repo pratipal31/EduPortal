@@ -14,54 +14,57 @@ type ClerkWebhookEvent = {
 };
 
 export async function POST(req: Request) {
-  const payload = await req.text();
-  const headerPayload = headers();
-  const svix_id = headerPayload.get("svix-id") as string;
-  const svix_timestamp = headerPayload.get("svix-timestamp") as string;
-  const svix_signature = headerPayload.get("svix-signature") as string;
-
-  if (!process.env.CLERK_WEBHOOK_SECRET) {
-    console.error("❌ CLERK_WEBHOOK_SECRET is not set");
-    return NextResponse.json(
-      { success: false, error: "Webhook secret not configured" },
-      { status: 500 }
-    );
-  }
-
-  const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
-  let event: ClerkWebhookEvent;
-
   try {
-    event = wh.verify(payload, {
-      "svix-id": svix_id,
-      "svix-timestamp": svix_timestamp,
-      "svix-signature": svix_signature,
-    }) as ClerkWebhookEvent;
-  } catch (err) {
-    console.error("❌ Invalid webhook signature", err);
-    return new Response("Invalid signature", { status: 400 });
-  }
+    const payload = await req.text();
 
-  console.log("🔔 Webhook received:", event.type);
+    // ✅ FIX: await headers()
+    const headerPayload = await headers();
+    const svix_id = headerPayload.get("svix-id") as string;
+    const svix_timestamp = headerPayload.get("svix-timestamp") as string;
+    const svix_signature = headerPayload.get("svix-signature") as string;
 
-  // Only handle user.created events
-  if (event.type !== "user.created") {
-    console.log(`ℹ️ Ignoring event type: ${event.type}`);
-    return NextResponse.json({ success: true, message: "Event ignored" });
-  }
+    if (!process.env.CLERK_WEBHOOK_SECRET) {
+      console.error("❌ CLERK_WEBHOOK_SECRET is not set");
+      return NextResponse.json(
+        { success: false, error: "Webhook secret not configured" },
+        { status: 500 }
+      );
+    }
 
-  const { id, email_addresses, unsafe_metadata, public_metadata } = event.data;
-  const email = email_addresses[0]?.email_address;
+    const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
+    let event: ClerkWebhookEvent;
 
-  // Get role from metadata, default to 'student'
-  // Note: The role will be set by the client-side sync-user API instead
-  const role = unsafe_metadata?.role || public_metadata?.role || "student";
+    try {
+      event = wh.verify(payload, {
+        "svix-id": svix_id,
+        "svix-timestamp": svix_timestamp,
+        "svix-signature": svix_signature,
+      }) as ClerkWebhookEvent;
+    } catch (err) {
+      console.error("❌ Invalid webhook signature", err);
+      return new Response("Invalid signature", { status: 400 });
+    }
 
-  console.log("📝 User data from webhook:", { clerk_id: id, email, role });
+    console.log("🔔 Webhook received:", event.type);
 
-  try {
+    if (event.type !== "user.created") {
+      console.log(`ℹ️ Ignoring event type: ${event.type}`);
+      return NextResponse.json({ success: true, message: "Event ignored" });
+    }
+
+    const { id, email_addresses, unsafe_metadata, public_metadata } = event.data;
+    const email = email_addresses[0]?.email_address;
+
+    // Default role to 'student'
+    const role = unsafe_metadata?.role || public_metadata?.role || "student";
+
+    console.log("📝 User data from webhook:", { clerk_id: id, email, role });
+
+    // ✅ FIX: call getSupabaseClient()
+    const supabase = getSupabaseClient();
+
     // Check if user already exists
-    const { data: existingUser } = await getSupabaseClient
+    const { data: existingUser } = await supabase
       .from("users")
       .select("*")
       .eq("clerk_id", id)
@@ -72,13 +75,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: "User already exists" });
     }
 
-    // Insert new user (this is a fallback if sync-user API didn't run)
-    const { data, error } = await getSupabaseClient
+    // Insert new user as fallback
+    const { data, error } = await supabase
       .from("users")
       .insert({
         clerk_id: id,
         email,
-        role, // Will be 'student' by default if not set
+        role,
       })
       .select();
 
@@ -93,7 +96,7 @@ export async function POST(req: Request) {
     console.log("✅ User created successfully in Supabase via webhook:", data);
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error("💥 Unexpected error:", error);
+    console.error("💥 Unexpected error in Clerk webhook:", error);
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 }
