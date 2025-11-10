@@ -1,7 +1,6 @@
 "use client";
 import { Navbar}  from "@/components/ui/Navbar";
-import {ThreeDPhotoCarousel} from "../components/ui/3d-carousel";
-import  Carousel  from "../components/ui/Carousel";
+import  Carousel  from "@/components/ui/Carousel";
 import AuthRedirector from "@/components/AuthRedirector";
 export default function Home() {
   return (
