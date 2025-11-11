@@ -289,6 +289,10 @@ export default function AvailableQuizzesPage() {
           })
           pointsEarned = (correctMatches / pairs.length) * question.points
           isCorrect = correctMatches === pairs.length
+        } else if (question.question_type === "short_answer" || question.question_type === "long_answer") {
+          // Instructors will need to manually grade these answers for correctness
+          isCorrect = studentAnswer && studentAnswer.trim().length > 0
+          pointsEarned = isCorrect ? question.points : 0
         }
 
         totalScore += pointsEarned
@@ -439,6 +443,26 @@ export default function AvailableQuizzesPage() {
           </div>
         )
 
+      case "short_answer":
+        return (
+          <textarea
+            placeholder="Enter your answer here..."
+            value={answer || ""}
+            onChange={(e) => handleAnswer(question.id, e.target.value)}
+            className="w-full p-3 sm:p-4 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-xs sm:text-base resize-none h-24"
+          />
+        )
+
+      case "long_answer":
+        return (
+          <textarea
+            placeholder="Enter your detailed answer here..."
+            value={answer || ""}
+            onChange={(e) => handleAnswer(question.id, e.target.value)}
+            className="w-full p-3 sm:p-4 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-xs sm:text-base resize-none h-40"
+          />
+        )
+
       default:
         return <p className="text-gray-500 text-xs sm:text-base">Unsupported question type</p>
     }
@@ -484,7 +508,7 @@ export default function AvailableQuizzesPage() {
                 }`}
               >
                 {/* Question Header */}
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-4 mb-3 sm:mb-4">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-2 sm:gap-3 mb-2">
                       <span className="text-xs sm:text-sm font-bold text-gray-600 flex-shrink-0">Q{idx + 1}.</span>
