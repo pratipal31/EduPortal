@@ -272,9 +272,13 @@ export default function AvailableQuizzesPage() {
           isCorrect = studentAnswer === question.correct_answer
           pointsEarned = isCorrect ? question.points : 0
         } else if (question.question_type === "fill_in_blank") {
-          const blanks = question.blanks || []
+          const blanksArray = Array.isArray(question.blanks)
+            ? question.blanks
+            : typeof question.blanks === "string"
+              ? JSON.parse(question.blanks)
+              : []
           const studentAnswers = studentAnswer || []
-          isCorrect = blanks.every(
+          isCorrect = blanksArray.every(
             (blank, idx) => studentAnswers[idx]?.toLowerCase().trim() === blank.toLowerCase().trim(),
           )
           pointsEarned = isCorrect ? question.points : 0
@@ -389,9 +393,15 @@ export default function AvailableQuizzesPage() {
         )
 
       case "fill_in_blank":
+        const blanksArray = Array.isArray(question.blanks)
+          ? question.blanks
+          : typeof question.blanks === "string"
+            ? JSON.parse(question.blanks)
+            : []
+
         return (
           <div className="space-y-2 sm:space-y-3">
-            {question.blanks?.map((_, idx) => (
+            {blanksArray.map((_, idx) => (
               <input
                 key={idx}
                 type="text"
@@ -672,7 +682,7 @@ export default function AvailableQuizzesPage() {
                         {quiz.title}
                       </h3>
                       <span
-                        className={`px-2 sm:px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap border flex-shrink-0 ${getDifficultyColor(quiz.difficulty)}`}
+                        className={`px-2 sm:px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${getDifficultyColor(quiz.difficulty)}`}
                       >
                         {quiz.difficulty}
                       </span>
