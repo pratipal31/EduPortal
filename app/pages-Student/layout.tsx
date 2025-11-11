@@ -32,9 +32,7 @@ export default function StudentLayout({
         <div className="md:hidden sticky top-0 z-30 bg-white shadow-sm border-b border-gray-200">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center space-x-2">
-              <div className="bg-gradient-to-r from-blue-500 to-cyan-500 p-2 rounded-lg">
-                <Menu className="w-5 h-5 text-white" />
-              </div>
+              
               <h1 className="text-lg font-bold text-gray-800">Student Portal</h1>
             </div>
             <button

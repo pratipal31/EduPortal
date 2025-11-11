@@ -83,13 +83,36 @@ export default function StudentNavbar({
   }, [user?.id, supabase]);
 
   const navigationItems: NavItem[] = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/pages-Student/StudentDashboard" },
-    { name: "Available Quizzes", icon: BookOpen, path: "/pages-Student/AvailableQuizzes" },
-    { name: "Take Quiz", icon: ClipboardCheck, path: "/pages-Student/TakeQuiz" },
-    { name: "My Results", icon: History, path: "/pages-Student/MyResults" },
-    { name: "Leaderboard", icon: Award, path: "/pages-Student/Leaderboard" },
-    { name: "Progress", icon: TrendingUp, path: "/pages-Student/Progress" },
-    { name: "Profile", icon: User, path: "/pages-Student/Profile" },
+     {
+      name: "Dashboard",
+      icon: LayoutDashboard,
+      path: "/pages-Student/StudentDashboard",
+    },
+    {
+      name: "Available Quizzes",
+      icon: BookOpen,
+      path: "/pages-Student/AvailableQuiz",
+    },
+    {
+      name: "My Results",
+      icon: History,
+      path: "/pages-Student/Result",
+    },
+    {
+      name: "Leaderboard",
+      icon: Award,
+      path: "/pages-Student/Leaderboard",
+    },
+    {
+      name: "Progress",
+      icon: TrendingUp,
+      path: "/pages-Student/Progress",
+    },
+    {
+      name: "Profile",
+      icon: User,
+      path: "/pages-Student/Profile",
+    },
   ];
 
   const handleNavigation = (path: string) => {

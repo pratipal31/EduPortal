@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
 
   experimental: {
-    serverActions: true,
+    // serverActions: true,
   },
 
   // ✅ Ignore TypeScript and ESLint errors during build
