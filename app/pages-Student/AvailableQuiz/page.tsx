@@ -80,6 +80,7 @@ export default function AvailableQuizzesPage() {
   const [answers, setAnswers] = useState<Record<string, any>>({})
   const [quizStarted, setQuizStarted] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [showDetailedResults, setShowDetailedResults] = useState(false)
   const [attemptResult, setAttemptResult] = useState<QuizAttempt | null>(null)
   const [startTime, setStartTime] = useState<number | null>(null)
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
@@ -118,25 +119,23 @@ export default function AvailableQuizzesPage() {
 
           if (attemptsData) {
             const stats: AttemptStats = {}
-           if (attemptsData) {
-  const stats: AttemptStats = {}
-  attemptsData.forEach((attempt: Pick<QuizAttempt, "quiz_id" | "score" | "total_points" | "completed_at">) => {
-    if (!stats[attempt.quiz_id]) {
-      stats[attempt.quiz_id] = {
-        attempts: 0,
-        bestScore: 0,
-        lastAttempt: "",
-      }
-    }
-    stats[attempt.quiz_id].attempts++
-    const score = (attempt.score / attempt.total_points) * 100
-    if (score > stats[attempt.quiz_id].bestScore) {
-      stats[attempt.quiz_id].bestScore = score
-    }
-    stats[attempt.quiz_id].lastAttempt = attempt.completed_at
-  })
-  setAttemptStats(stats)
-}
+            attemptsData.forEach(
+              (attempt: Pick<QuizAttempt, "quiz_id" | "score" | "total_points" | "completed_at">) => {
+                if (!stats[attempt.quiz_id]) {
+                  stats[attempt.quiz_id] = {
+                    attempts: 0,
+                    bestScore: 0,
+                    lastAttempt: "",
+                  }
+                }
+                stats[attempt.quiz_id].attempts++
+                const score = (attempt.score / attempt.total_points) * 100
+                if (score > stats[attempt.quiz_id].bestScore) {
+                  stats[attempt.quiz_id].bestScore = score
+                }
+                stats[attempt.quiz_id].lastAttempt = attempt.completed_at
+              },
+            )
             setAttemptStats(stats)
           }
         }
@@ -172,6 +171,41 @@ export default function AvailableQuizzesPage() {
     return () => clearInterval(interval)
   }, [quizStarted, selectedQuiz, startTime])
 
+  const fetchAttemptStats = async () => {
+    if (!user || !userProfile) return
+
+    try {
+      const supabase = getSupabaseClient()
+      const { data: attemptsData } = await supabase
+        .from("quiz_attempts")
+        .select("quiz_id, score, total_points, completed_at")
+        .eq("student_id", userProfile.id)
+        .eq("status", "completed")
+
+      if (attemptsData) {
+        const stats: AttemptStats = {}
+        attemptsData.forEach((attempt: Pick<QuizAttempt, "quiz_id" | "score" | "total_points" | "completed_at">) => {
+          if (!stats[attempt.quiz_id]) {
+            stats[attempt.quiz_id] = {
+              attempts: 0,
+              bestScore: 0,
+              lastAttempt: "",
+            }
+          }
+          stats[attempt.quiz_id].attempts++
+          const score = (attempt.score / attempt.total_points) * 100
+          if (score > stats[attempt.quiz_id].bestScore) {
+            stats[attempt.quiz_id].bestScore = score
+          }
+          stats[attempt.quiz_id].lastAttempt = attempt.completed_at
+        })
+        setAttemptStats(stats)
+      }
+    } catch (err) {
+      console.error("Error fetching attempt stats:", err)
+    }
+  }
+
   const handleSelectQuiz = async (quiz: Quiz) => {
     setSelectedQuiz(quiz)
     setSelectedQuizId(quiz.id)
@@ -193,6 +227,10 @@ export default function AvailableQuizzesPage() {
       setAnswers({})
       setQuizStarted(false)
       setShowResults(false)
+      setShowDetailedResults(false)
+
+      // Refresh attempt stats after selecting a quiz
+      await fetchAttemptStats()
     } catch (err) {
       console.error("Error loading quiz:", err)
       setQuizError("Failed to load quiz questions. Please try again.")
@@ -288,6 +326,9 @@ export default function AvailableQuizzesPage() {
 
       setAttemptResult(attempt)
       setShowResults(true)
+
+      // Refresh attempt stats after submission
+      await fetchAttemptStats()
     } catch (err) {
       console.error("Error submitting quiz:", err)
       setQuizError("Failed to submit quiz. Please try again.")
@@ -403,6 +444,115 @@ export default function AvailableQuizzesPage() {
     }
   }
 
+  const renderDetailedResults = () => {
+    if (!attemptResult) return null
+
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
+          <div className="bg-blue-50 rounded-lg p-3 sm:p-6 border border-blue-100">
+            <p className="text-gray-600 text-xs font-medium mb-1">Score</p>
+            <p className="text-lg sm:text-2xl font-bold text-blue-600">
+              {Math.round(attemptResult.score)}/{attemptResult.total_points}
+            </p>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-3 sm:p-6 border border-purple-100">
+            <p className="text-gray-600 text-xs font-medium mb-1">%</p>
+            <p className="text-lg sm:text-2xl font-bold text-purple-600">{attemptResult.percentage}%</p>
+          </div>
+          <div className="bg-orange-50 rounded-lg p-3 sm:p-6 border border-orange-100">
+            <p className="text-gray-600 text-xs font-medium mb-1">Time</p>
+            <p className="text-lg sm:text-2xl font-bold text-orange-600">
+              {Math.floor(attemptResult.time_taken / 60)}m
+            </p>
+          </div>
+        </div>
+
+        {/* Questions Review */}
+        <div className="space-y-4 sm:space-y-6">
+          <h3 className="text-base sm:text-xl font-bold text-gray-900">Review Answers</h3>
+          {attemptResult.answers?.map((answerData: any, idx: number) => {
+            const question = quizQuestions.find((q) => q.id === answerData.question_id)
+            if (!question) return null
+
+            return (
+              <div
+                key={idx}
+                className={`rounded-lg border-2 p-4 sm:p-6 ${
+                  answerData.is_correct ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+                }`}
+              >
+                {/* Question Header */}
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-4 mb-3 sm:mb-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start gap-2 sm:gap-3 mb-2">
+                      <span className="text-xs sm:text-sm font-bold text-gray-600 flex-shrink-0">Q{idx + 1}.</span>
+                      <p className="text-xs sm:text-base font-semibold text-gray-900">{question.question_text}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {answerData.is_correct ? (
+                      <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+                    ) : (
+                      <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+                    )}
+                    <span className="text-xs sm:text-sm font-bold">
+                      {Math.round(answerData.points_earned)}/{answerData.points_possible} pts
+                    </span>
+                  </div>
+                </div>
+
+                {/* Answer Details */}
+                <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-4">
+                  <div className="bg-white rounded p-3 sm:p-4 border border-gray-200">
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Your Answer:</p>
+                    <p className="text-xs sm:text-sm text-gray-900">
+                      {Array.isArray(answerData.student_answer)
+                        ? answerData.student_answer.join(", ")
+                        : typeof answerData.student_answer === "object"
+                          ? Object.entries(answerData.student_answer)
+                              .map(([key, value]) => `${key} → ${value}`)
+                              .join("; ")
+                          : answerData.student_answer || "Not answered"}
+                    </p>
+                  </div>
+
+                  {!answerData.is_correct && (
+                    <div className="bg-white rounded p-3 sm:p-4 border border-gray-200">
+                      <p className="text-xs font-semibold text-gray-600 mb-1">Correct Answer:</p>
+                      <p className="text-xs sm:text-sm text-green-700 font-medium">
+                        {Array.isArray(answerData.correct_answer)
+                          ? answerData.correct_answer.join(", ")
+                          : answerData.correct_answer}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Explanation */}
+                {question.explanation && (
+                  <div className="bg-white rounded p-3 sm:p-4 border-l-4 border-l-blue-500 border border-gray-200">
+                    <p className="text-xs font-semibold text-blue-600 mb-2">💡 Explanation:</p>
+                    <p className="text-xs sm:text-sm text-gray-700">{question.explanation}</p>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Action Button */}
+        <button
+          onClick={closeQuizModal}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg transition-colors text-xs sm:text-base mt-6 sm:mt-8"
+        >
+          Back to Quizzes
+        </button>
+      </div>
+    )
+  }
+
   const closeQuizModal = () => {
     setSelectedQuizId(null)
     setSelectedQuiz(null)
@@ -411,6 +561,7 @@ export default function AvailableQuizzesPage() {
     setAnswers({})
     setQuizStarted(false)
     setShowResults(false)
+    setShowDetailedResults(false)
     setAttemptResult(null)
     setTimeLeft(null)
     setQuizError(null)
@@ -490,7 +641,6 @@ export default function AvailableQuizzesPage() {
                   key={quiz.id}
                   className="group flex flex-col bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 hover:border-blue-200 h-full"
                 >
-                  {/* Card Content */}
                   <div className="p-4 sm:p-6 flex flex-col h-full">
                     {/* Title and Difficulty */}
                     <div className="flex items-start justify-between gap-2 sm:gap-3 mb-3 min-h-[56px]">
@@ -549,7 +699,7 @@ export default function AvailableQuizzesPage() {
                       className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 group/btn mt-auto text-xs sm:text-sm"
                     >
                       <Target className="w-4 h-4" />
-                      <span>Start Quiz</span>
+                      <span>{stats ? "Retake Quiz" : "Start Quiz"}</span>
                       <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                     </button>
                   </div>
@@ -588,8 +738,10 @@ export default function AvailableQuizzesPage() {
                   <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                   <p className="text-red-700 text-xs sm:text-sm">{quizError}</p>
                 </div>
+              ) : showDetailedResults ? (
+                renderDetailedResults()
               ) : showResults && attemptResult ? (
-                // Results screen
+                // Results screen with option to view detailed results
                 <div className="text-center">
                   <div className="mb-6 sm:mb-8">
                     {attemptResult.passed ? (
@@ -624,15 +776,22 @@ export default function AvailableQuizzesPage() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={closeQuizModal}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg transition-colors text-xs sm:text-base"
-                  >
-                    Close
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={closeQuizModal}
+                      className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors text-xs sm:text-base"
+                    >
+                      Back to Quizzes
+                    </button>
+                    <button
+                      onClick={() => setShowDetailedResults(true)}
+                      className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors text-xs sm:text-base"
+                    >
+                      Review Answers
+                    </button>
+                  </div>
                 </div>
               ) : !quizStarted && selectedQuiz ? (
-                // Quiz instructions screen
                 <div>
                   <p className="text-gray-600 text-xs sm:text-base mb-6 sm:mb-8">{selectedQuiz.description}</p>
 
@@ -676,7 +835,6 @@ export default function AvailableQuizzesPage() {
                   </div>
                 </div>
               ) : quizStarted && quizQuestions.length > 0 ? (
-                // Active quiz screen
                 <div>
                   {/* Quiz Progress Header */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
