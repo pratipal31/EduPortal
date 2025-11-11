@@ -118,7 +118,16 @@ export default function LeaderboardPage() {
     fetchLeaderboard()
   }, [userProfile, selectedQuiz, supabase])
 
-  if (!isLoaded || loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  if (!isLoaded || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading leaderboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   const getMedalColor = (rank: number) => {
     switch (rank) {
@@ -134,23 +143,23 @@ export default function LeaderboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-linear-to-br from-indigo-50 via-purple-50 to-pink-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
-            <Trophy className="w-8 h-8" />
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-linear-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
+            <Trophy className="w-6 h-6 sm:w-8 sm:h-8" />
             Leaderboard
           </h1>
-          <p className="text-gray-600 mt-2">Student rankings based on quiz performance</p>
+          <p className="text-sm sm:text-base text-gray-600 mt-2">Student rankings based on quiz performance</p>
         </div>
 
         {/* Filter */}
-        <div className="mb-6 bg-white rounded-2xl shadow-lg p-4 border border-gray-100">
-          <label className="block text-sm font-medium mb-2">Filter by Quiz:</label>
+        <div className="mb-4 sm:mb-6 bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 border border-gray-100">
+          <label className="block text-xs sm:text-sm font-medium mb-2">Filter by Quiz:</label>
           <select
             value={selectedQuiz}
             onChange={(e) => setSelectedQuiz(e.target.value)}
-            className="w-full sm:w-64 p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+            className="w-full sm:w-64 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">All Quizzes</option>
             {quizzes.map((q) => (
@@ -163,52 +172,52 @@ export default function LeaderboardPage() {
 
         {/* Leaderboard */}
         {leaderboard.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg p-12 border border-gray-100 text-center">
-            <Zap className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">No quiz attempts yet</p>
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-8 sm:p-12 border border-gray-100 text-center">
+            <Zap className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 text-base sm:text-lg">No quiz attempts yet</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {leaderboard.map((entry) => (
               <div
                 key={entry.studentId}
-                className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300"
+                className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300"
               >
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                  <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                     <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg border-2 ${getMedalColor(
+                      className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center font-bold text-base sm:text-lg border-2 shrink-0 ${getMedalColor(
                         entry.rank,
                       )}`}
                     >
                       {entry.rank === 1 ? (
-                        <Trophy className="w-6 h-6" />
+                        <Trophy className="w-5 h-5 sm:w-6 sm:h-6" />
                       ) : entry.rank === 2 ? (
-                        <Award className="w-6 h-6" />
+                        <Award className="w-5 h-5 sm:w-6 sm:h-6" />
                       ) : entry.rank === 3 ? (
-                        <Zap className="w-6 h-6" />
+                        <Zap className="w-5 h-5 sm:w-6 sm:h-6" />
                       ) : (
                         entry.rank
                       )}
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-800">{entry.studentEmail}</h3>
-                      <p className="text-sm text-gray-500">Rank #{entry.rank}</p>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm sm:text-base text-gray-800 break-all">{entry.studentEmail}</h3>
+                      <p className="text-xs sm:text-sm text-gray-500">Rank #{entry.rank}</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-6 text-center">
+                  <div className="grid grid-cols-3 gap-3 sm:gap-6 text-center w-full sm:w-auto">
                     <div>
-                      <p className="text-gray-600 text-sm font-medium">Avg Score</p>
-                      <p className="text-2xl font-bold text-indigo-600">{entry.avgScore}%</p>
+                      <p className="text-gray-600 text-xs font-medium">Avg Score</p>
+                      <p className="text-xl sm:text-2xl font-bold text-indigo-600">{entry.avgScore}%</p>
                     </div>
                     <div>
-                      <p className="text-gray-600 text-sm font-medium">Attempts</p>
-                      <p className="text-2xl font-bold text-purple-600">{entry.totalAttempts}</p>
+                      <p className="text-gray-600 text-xs font-medium">Attempts</p>
+                      <p className="text-xl sm:text-2xl font-bold text-purple-600">{entry.totalAttempts}</p>
                     </div>
                     <div>
-                      <p className="text-gray-600 text-sm font-medium">Passed</p>
-                      <p className="text-2xl font-bold text-green-600">{entry.passedCount}</p>
+                      <p className="text-gray-600 text-xs font-medium">Passed</p>
+                      <p className="text-xl sm:text-2xl font-bold text-green-600">{entry.passedCount}</p>
                     </div>
                   </div>
                 </div>
