@@ -49,6 +49,7 @@ interface AttemptStats {
     attempts: number
     bestScore: number
     lastAttempt: string
+    completed: boolean
   }
 }
 
@@ -63,6 +64,93 @@ interface QuizAttempt {
   time_taken: number
   answers: any
   completed_at: string
+}
+
+const normalizeNumericAnswer = (answer: string): number | null => {
+  if (!answer || typeof answer !== "string") return null
+  const trimmed = answer.trim()
+  const parsed = Number.parseFloat(trimmed)
+  return isNaN(parsed) ? null : parsed
+}
+
+const compareNumericAnswers = (studentAnswer: string, correctAnswer: string, tolerance = 0.01): boolean => {
+  const studentNum = normalizeNumericAnswer(studentAnswer)
+  const correctNum = normalizeNumericAnswer(correctAnswer)
+
+  if (studentNum === null || correctNum === null) return false
+  return Math.abs(studentNum - correctNum) <= tolerance
+}
+
+const checkAnswer = (question: Question, studentAnswer: any, questionType: string): boolean => {
+  try {
+    switch (questionType) {
+      case "multiple_choice":
+        return studentAnswer === question.correct_answer
+
+      case "true_false":
+        return studentAnswer?.toLowerCase() === question.correct_answer?.toLowerCase()
+
+      case "fill_in_blank": {
+        const blanksArray = Array.isArray(question.blanks)
+          ? question.blanks
+          : typeof question.blanks === "string"
+            ? JSON.parse(question.blanks)
+            : []
+
+        const studentAnswers = studentAnswer || []
+        if (!Array.isArray(studentAnswers)) return false
+
+        // Check if all blanks match (case-insensitive, trimmed)
+        return blanksArray.every((blank, idx) => {
+          const student = studentAnswers[idx]?.toString().toLowerCase().trim() || ""
+          const correct = blank.toLowerCase().trim()
+
+          // Try numeric comparison for math answers
+          if (compareNumericAnswers(student, correct)) {
+            return true
+          }
+
+          return student === correct
+        })
+      }
+
+      case "match_following": {
+        const pairs = question.match_pairs || []
+        const studentPairs = studentAnswer || {}
+
+        if (typeof studentPairs !== "object") return false
+
+        // Check if all required matches are correct
+        return pairs.every((pair) => {
+          return studentPairs[pair.left] === pair.right
+        })
+      }
+
+      case "short_answer":
+      case "long_answer": {
+        if (!studentAnswer || !question.correct_answer) return false
+
+        const student = studentAnswer.toString().trim()
+        if (!student) return false
+
+        const correct = question.correct_answer.toString().trim()
+
+        // Try numeric comparison first for math problems (e.g., 2+2 = 4, abc ≠ 4)
+        if (compareNumericAnswers(student, correct)) {
+          return true
+        }
+
+        // Fall back to case-insensitive text comparison
+        return student.toLowerCase() === correct.toLowerCase()
+      }
+
+      default:
+        return false
+    }
+  } catch (error) {
+    console.error("Error checking answer:", error)
+    return false
+  }
 }
 
 export default function AvailableQuizzesPage() {
@@ -93,7 +181,6 @@ export default function AvailableQuizzesPage() {
       try {
         const supabase = getSupabaseClient()
 
-        // Fetch all published quizzes
         const { data: quizzesData, error: quizzesError } = await supabase
           .from("quizzes")
           .select("*")
@@ -102,7 +189,6 @@ export default function AvailableQuizzesPage() {
 
         if (quizzesError) throw quizzesError
 
-        // Fetch user's attempts and profile
         const { data: userProfile, error: profileError } = await supabase
           .from("users")
           .select("id")
@@ -113,22 +199,25 @@ export default function AvailableQuizzesPage() {
           setUserProfile(userProfile)
           const { data: attemptsData } = await supabase
             .from("quiz_attempts")
-            .select("quiz_id, score, total_points, completed_at")
+            .select("quiz_id, score, total_points, completed_at, status")
             .eq("student_id", userProfile.id)
-            .eq("status", "completed")
 
           if (attemptsData) {
             const stats: AttemptStats = {}
             attemptsData.forEach(
-              (attempt: Pick<QuizAttempt, "quiz_id" | "score" | "total_points" | "completed_at">) => {
+              (
+                attempt: Pick<QuizAttempt, "quiz_id" | "score" | "total_points" | "completed_at"> & { status: string },
+              ) => {
                 if (!stats[attempt.quiz_id]) {
                   stats[attempt.quiz_id] = {
                     attempts: 0,
                     bestScore: 0,
                     lastAttempt: "",
+                    completed: false,
                   }
                 }
                 stats[attempt.quiz_id].attempts++
+                stats[attempt.quiz_id].completed = attempt.status === "completed"
                 const score = (attempt.score / attempt.total_points) * 100
                 if (score > stats[attempt.quiz_id].bestScore) {
                   stats[attempt.quiz_id].bestScore = score
@@ -178,27 +267,30 @@ export default function AvailableQuizzesPage() {
       const supabase = getSupabaseClient()
       const { data: attemptsData } = await supabase
         .from("quiz_attempts")
-        .select("quiz_id, score, total_points, completed_at")
+        .select("quiz_id, score, total_points, completed_at, status")
         .eq("student_id", userProfile.id)
-        .eq("status", "completed")
 
       if (attemptsData) {
         const stats: AttemptStats = {}
-        attemptsData.forEach((attempt: Pick<QuizAttempt, "quiz_id" | "score" | "total_points" | "completed_at">) => {
-          if (!stats[attempt.quiz_id]) {
-            stats[attempt.quiz_id] = {
-              attempts: 0,
-              bestScore: 0,
-              lastAttempt: "",
+        attemptsData.forEach(
+          (attempt: Pick<QuizAttempt, "quiz_id" | "score" | "total_points" | "completed_at"> & { status: string }) => {
+            if (!stats[attempt.quiz_id]) {
+              stats[attempt.quiz_id] = {
+                attempts: 0,
+                bestScore: 0,
+                lastAttempt: "",
+                completed: false,
+              }
             }
-          }
-          stats[attempt.quiz_id].attempts++
-          const score = (attempt.score / attempt.total_points) * 100
-          if (score > stats[attempt.quiz_id].bestScore) {
-            stats[attempt.quiz_id].bestScore = score
-          }
-          stats[attempt.quiz_id].lastAttempt = attempt.completed_at
-        })
+            stats[attempt.quiz_id].attempts++
+            stats[attempt.quiz_id].completed = attempt.status === "completed"
+            const score = (attempt.score / attempt.total_points) * 100
+            if (score > stats[attempt.quiz_id].bestScore) {
+              stats[attempt.quiz_id].bestScore = score
+            }
+            stats[attempt.quiz_id].lastAttempt = attempt.completed_at
+          },
+        )
         setAttemptStats(stats)
       }
     } catch (err) {
@@ -229,7 +321,6 @@ export default function AvailableQuizzesPage() {
       setShowResults(false)
       setShowDetailedResults(false)
 
-      // Refresh attempt stats after selecting a quiz
       await fetchAttemptStats()
     } catch (err) {
       console.error("Error loading quiz:", err)
@@ -243,6 +334,8 @@ export default function AvailableQuizzesPage() {
     setQuizStarted(true)
     setStartTime(Date.now())
     setTimeLeft((selectedQuiz?.duration ?? 30) * 60)
+    setAnswers({})
+    setCurrentQuestionIndex(0)
   }
 
   const handleAnswer = (questionId: string, answer: any) => {
@@ -268,35 +361,12 @@ export default function AvailableQuizzesPage() {
 
         totalPoints += question.points
 
-        if (question.question_type === "multiple_choice" || question.question_type === "true_false") {
-          isCorrect = studentAnswer === question.correct_answer
+        try {
+          isCorrect = checkAnswer(question, studentAnswer, question.question_type)
           pointsEarned = isCorrect ? question.points : 0
-        } else if (question.question_type === "fill_in_blank") {
-          const blanksArray = Array.isArray(question.blanks)
-            ? question.blanks
-            : typeof question.blanks === "string"
-              ? JSON.parse(question.blanks)
-              : []
-          const studentAnswers = studentAnswer || []
-          isCorrect = blanksArray.every(
-            (blank, idx) => studentAnswers[idx]?.toLowerCase().trim() === blank.toLowerCase().trim(),
-          )
-          pointsEarned = isCorrect ? question.points : 0
-        } else if (question.question_type === "match_following") {
-          const pairs = question.match_pairs || []
-          const studentPairs = studentAnswer || {}
-          let correctMatches = 0
-          pairs.forEach((pair) => {
-            if (studentPairs[pair.left] === pair.right) {
-              correctMatches++
-            }
-          })
-          pointsEarned = (correctMatches / pairs.length) * question.points
-          isCorrect = correctMatches === pairs.length
-        } else if (question.question_type === "short_answer" || question.question_type === "long_answer") {
-          // Instructors will need to manually grade these answers for correctness
-          isCorrect = studentAnswer && studentAnswer.trim().length > 0
-          pointsEarned = isCorrect ? question.points : 0
+        } catch (error) {
+          console.error(`Error checking question ${question.id}:`, error)
+          pointsEarned = 0
         }
 
         totalScore += pointsEarned
@@ -335,7 +405,6 @@ export default function AvailableQuizzesPage() {
       setAttemptResult(attempt)
       setShowResults(true)
 
-      // Refresh attempt stats after submission
       await fetchAttemptStats()
     } catch (err) {
       console.error("Error submitting quiz:", err)
@@ -483,7 +552,6 @@ export default function AvailableQuizzesPage() {
 
     return (
       <div className="space-y-4 sm:space-y-6">
-        {/* Summary Cards */}
         <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
           <div className="bg-blue-50 rounded-lg p-3 sm:p-6 border border-blue-100">
             <p className="text-gray-600 text-xs font-medium mb-1">Score</p>
@@ -503,7 +571,6 @@ export default function AvailableQuizzesPage() {
           </div>
         </div>
 
-        {/* Questions Review */}
         <div className="space-y-4 sm:space-y-6">
           <h3 className="text-base sm:text-xl font-bold text-gray-900">Review Answers</h3>
           {attemptResult.answers?.map((answerData: any, idx: number) => {
@@ -517,7 +584,6 @@ export default function AvailableQuizzesPage() {
                   answerData.is_correct ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
                 }`}
               >
-                {/* Question Header */}
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-2 sm:gap-3 mb-2">
@@ -537,7 +603,6 @@ export default function AvailableQuizzesPage() {
                   </div>
                 </div>
 
-                {/* Answer Details */}
                 <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-4">
                   <div className="bg-white rounded p-3 sm:p-4 border border-gray-200">
                     <p className="text-xs font-semibold text-gray-600 mb-1">Your Answer:</p>
@@ -564,10 +629,9 @@ export default function AvailableQuizzesPage() {
                   )}
                 </div>
 
-                {/* Explanation */}
                 {question.explanation && (
                   <div className="bg-white rounded p-3 sm:p-4 border-l-4 border-l-blue-500 border border-gray-200">
-                    <p className="text-xs font-semibold text-blue-600 mb-2">💡 Explanation:</p>
+                    <p className="text-xs font-semibold text-blue-600 mb-2">Explanation:</p>
                     <p className="text-xs sm:text-sm text-gray-700">{question.explanation}</p>
                   </div>
                 )}
@@ -576,7 +640,6 @@ export default function AvailableQuizzesPage() {
           })}
         </div>
 
-        {/* Action Button */}
         <button
           onClick={closeQuizModal}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg transition-colors text-xs sm:text-base mt-6 sm:mt-8"
@@ -627,7 +690,6 @@ export default function AvailableQuizzesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-12">
-        {/* Header Section */}
         <div className="mb-8 sm:mb-12">
           <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2 sm:mb-3 text-balance">
             Available Quizzes
@@ -637,7 +699,6 @@ export default function AvailableQuizzesPage() {
           </p>
         </div>
 
-        {/* Error State */}
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -645,7 +706,6 @@ export default function AvailableQuizzesPage() {
           </div>
         )}
 
-        {/* Loading State */}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -670,30 +730,36 @@ export default function AvailableQuizzesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 auto-rows-max">
             {quizzes.map((quiz) => {
               const stats = attemptStats[quiz.id]
+              const isCompleted = stats?.completed
               return (
                 <div
                   key={quiz.id}
                   className="group flex flex-col bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 hover:border-blue-200 h-full"
                 >
                   <div className="p-4 sm:p-6 flex flex-col h-full">
-                    {/* Title and Difficulty */}
                     <div className="flex items-start justify-between gap-2 sm:gap-3 mb-3 min-h-[56px]">
                       <h3 className="text-sm sm:text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 flex-1">
                         {quiz.title}
                       </h3>
-                      <span
-                        className={`px-2 sm:px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${getDifficultyColor(quiz.difficulty)}`}
-                      >
-                        {quiz.difficulty}
-                      </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span
+                          className={`px-2 sm:px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${getDifficultyColor(quiz.difficulty)}`}
+                        >
+                          {quiz.difficulty}
+                        </span>
+                        {isCompleted && (
+                          <span className="px-2 sm:px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 bg-green-100 text-green-700 border border-green-200 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Completed
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Description */}
                     <p className="text-gray-600 text-xs sm:text-sm mb-4 line-clamp-2 flex-shrink-0">
                       {quiz.description}
                     </p>
 
-                    {/* Quiz Info */}
                     <div className="space-y-2 mb-6 flex-shrink-0">
                       <div className="flex items-center gap-2 text-gray-600 text-xs sm:text-sm">
                         <FileText className="w-4 h-4 text-blue-600 flex-shrink-0" />
@@ -709,7 +775,6 @@ export default function AvailableQuizzesPage() {
                       </div>
                     </div>
 
-                    {/* Attempt Stats */}
                     {stats && (
                       <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg p-3 sm:p-4 mb-6 border border-blue-100">
                         <p className="text-xs text-gray-600 font-medium mb-2 sm:mb-3">Your Performance</p>
@@ -733,7 +798,7 @@ export default function AvailableQuizzesPage() {
                       className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 group/btn mt-auto text-xs sm:text-sm"
                     >
                       <Target className="w-4 h-4" />
-                      <span>{stats ? "Retake Quiz" : "Start Quiz"}</span>
+                      <span>{isCompleted ? "Retake Quiz" : stats ? "Retake Quiz" : "Start Quiz"}</span>
                       <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                     </button>
                   </div>
@@ -747,7 +812,6 @@ export default function AvailableQuizzesPage() {
       {selectedQuizId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div className="sticky top-0 bg-white border-b border-gray-200 p-3 sm:p-6 flex items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <h2 className="text-base sm:text-2xl font-bold text-gray-900 truncate">{selectedQuiz?.title}</h2>
@@ -760,7 +824,6 @@ export default function AvailableQuizzesPage() {
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="p-4 sm:p-8">
               {quizLoading ? (
                 <div className="flex items-center justify-center py-12">
@@ -775,7 +838,6 @@ export default function AvailableQuizzesPage() {
               ) : showDetailedResults ? (
                 renderDetailedResults()
               ) : showResults && attemptResult ? (
-                // Results screen with option to view detailed results
                 <div className="text-center">
                   <div className="mb-6 sm:mb-8">
                     {attemptResult.passed ? (
@@ -870,7 +932,6 @@ export default function AvailableQuizzesPage() {
                 </div>
               ) : quizStarted && quizQuestions.length > 0 ? (
                 <div>
-                  {/* Quiz Progress Header */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
                     <div className="w-full sm:flex-1">
                       <p className="text-gray-600 text-xs sm:text-sm">
@@ -896,7 +957,6 @@ export default function AvailableQuizzesPage() {
                     </div>
                   </div>
 
-                  {/* Question */}
                   {quizQuestions[currentQuestionIndex] && (
                     <div className="mb-6 sm:mb-8">
                       <div className="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-4 mb-4 sm:mb-6">
@@ -911,7 +971,6 @@ export default function AvailableQuizzesPage() {
                     </div>
                   )}
 
-                  {/* Navigation */}
                   <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
                     <button
                       onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
