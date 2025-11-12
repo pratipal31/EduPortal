@@ -66,9 +66,9 @@ const Navbar = () => {
                 localStorage.removeItem("pendingUserRoleTime");
 
                 if (pendingRole === "teacher") {
-                  router.push("/frontend/app/pages/Teacher/Dashboard");
+                  router.push("/pages-Teacher/TeacherDashboard");
                 } else if (pendingRole === "student") {
-                  router.push("/frontend/app/pages/Student/Dashboard");
+                  router.push("/pages-Student/StudentDashboard");
                 }
               }
             } catch (error) {
