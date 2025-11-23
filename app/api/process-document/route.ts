@@ -1,0 +1,124 @@
+// app/api/process-document/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { auth } from '@clerk/nextjs/server';
+import { extractTextFromFile, splitIntoChunks, generateHuggingFaceEmbedding } from '@/lib/embeddings';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+export async function POST(req: NextRequest) {
+  try {
+    // Use await with auth() to get userId
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized - Please sign in' }, { status: 401 });
+    }
+
+    // Get teacher_id from users table using clerk_id
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_id', userId)
+      .single();
+
+    if (userError || !userData) {
+      return NextResponse.json({ 
+        error: 'User not found in database. Please contact support.',
+        details: userError?.message 
+      }, { status: 404 });
+    }
+
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    const documentTitle = formData.get('title') as string || file?.name || 'Untitled Document';
+
+    if (!file) {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
+
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return NextResponse.json({ 
+        error: 'File too large. Maximum size is 10MB.' 
+      }, { status: 400 });
+    }
+
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json({ 
+        error: 'Invalid file type. Please upload PDF, DOCX, or TXT files.' 
+      }, { status: 400 });
+    }
+
+    console.log('Processing file:', file.name, 'Type:', file.type, 'Size:', file.size);
+
+    // Extract text from file
+    const fullText = await extractTextFromFile(file);
+    
+    if (!fullText || fullText.trim().length === 0) {
+      return NextResponse.json({ 
+        error: 'No text could be extracted from the file' 
+      }, { status: 400 });
+    }
+
+    console.log('Extracted text length:', fullText.length);
+
+    // Split into chunks
+    const chunks = splitIntoChunks(fullText, 1000, 200);
+    console.log('Created chunks:', chunks.length);
+
+    // Process each chunk and store in database
+    const chunkPromises = chunks.map(async (chunk, index) => {
+      try {
+        const embedding = await generateHuggingFaceEmbedding(chunk);
+        
+        const { data, error } = await supabase
+          .from('document_chunks')
+          .insert({
+            teacher_id: userData.id,
+            document_title: documentTitle,
+            chunk_text: chunk,
+            embedding: embedding,
+          })
+          .select();
+
+        if (error) {
+          console.error(`Error inserting chunk ${index}:`, error);
+          throw error;
+        }
+
+        return data;
+      } catch (error) {
+        console.error(`Failed to process chunk ${index}:`, error);
+        throw error;
+      }
+    });
+
+    await Promise.all(chunkPromises);
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Document processed successfully with ${chunks.length} chunks`,
+      chunks: chunks.length,
+      documentTitle: documentTitle
+    });
+
+  } catch (error) {
+    console.error('Document processing error:', error);
+    return NextResponse.json({ 
+      error: 'Failed to process document',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+}

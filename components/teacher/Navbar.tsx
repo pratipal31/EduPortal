@@ -15,6 +15,7 @@ import {
   GraduationCap,
   ClipboardList,
   Award,
+  SparkleIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -50,6 +51,7 @@ export default function TeacherNavbar({
     { name: "Results", icon: ClipboardList, path: "/pages-Teacher/Results" },
     { name: "Analytics", icon: BarChart3, path: "/pages-Teacher/Analytics" },
     { name: "Leaderboard", icon: Award, path: "/pages-Teacher/Leaderboard" },
+    { name: "Generate Quiz", icon: SparkleIcon, path: "/pages-Teacher/UploadDocument" },
   ];
 
   const handleNavigation = (path: string) => {
