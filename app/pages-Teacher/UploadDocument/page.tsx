@@ -60,46 +60,61 @@ export default function UploadDocumentPage() {
     }
   };
 
-  const handleUpload = async () => {
-    if (!file) {
-      setError('Please select a file');
-      return;
-    }
+ const handleUpload = async () => {
+  if (!file) {
+    setError('Please select a file');
+    return;
+  }
 
-    setUploading(true);
-    setError('');
-    setSuccess('');
+  setUploading(true);
+  setError('');
+  setSuccess('');
 
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', title);
+
+    const response = await fetch('/api/process-document', {
+      method: 'POST',
+      body: formData,
+    });
+
+    // DEBUG: Log the response status and content type
+    console.log('Response Status:', response.status);
+    console.log('Content-Type:', response.headers.get('content-type'));
+
+    // Get the raw text first
+    const text = await response.text();
+    console.log('Response Text:', text);
+
+    // Try to parse as JSON
+    let data;
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('title', title);
-
-      const response = await fetch('/api/process-document', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Upload failed');
-      }
-
-      setSuccess(`Document uploaded successfully! Processed ${data.chunks} chunks.`);
-      setUploadedChunks(data.chunks);
-      setFile(null);
-      setTitle('');
-      
-      const fileInput = document.getElementById('file-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
-    } finally {
-      setUploading(false);
+      data = JSON.parse(text);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError);
+      throw new Error(`Server returned invalid JSON: ${text.substring(0, 100)}`);
     }
-  };
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Upload failed');
+    }
+
+    setSuccess(`Document uploaded successfully! Processed ${data.chunks} chunks.`);
+    setUploadedChunks(data.chunks);
+    setFile(null);
+    setTitle('');
+    
+    const fileInput = document.getElementById('file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Upload failed');
+  } finally {
+    setUploading(false);
+  }
+};
 
   const handleGenerateQuiz = async () => {
     if (!quizConfig.title.trim()) {
