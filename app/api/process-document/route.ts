@@ -4,6 +4,15 @@ import { createClient } from '@supabase/supabase-js';
 import { auth } from '@clerk/nextjs/server';
 import { extractTextFromFile, splitIntoChunks, generateHuggingFaceEmbedding } from '@/lib/embeddings';
 
+// Configure Next.js to accept larger body sizes
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb',
+    },
+  },
+};
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -40,11 +49,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Validate file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    // Validate file size (50MB limit - adjust as needed)
+    const maxSize = 50 * 1024 * 1024; // 50MB
     if (file.size > maxSize) {
       return NextResponse.json({ 
-        error: 'File too large. Maximum size is 10MB.' 
+        error: 'File too large. Maximum size is 50MB.' 
       }, { status: 400 });
     }
 
@@ -76,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     // Split into chunks
     const chunks = splitIntoChunks(fullText, 1000, 200);
-          console.log('Created chunks:', chunks.length);
+    console.log('Created chunks:', chunks.length);
 
     // Process each chunk and store in database
     const chunkPromises = chunks.map(async (chunk, index) => {
