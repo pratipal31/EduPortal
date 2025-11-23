@@ -56,10 +56,13 @@ export async function POST(req: NextRequest) {
 
     console.log('Generated query embedding');
 
+    // Format embedding as PostgreSQL vector string
+    const vectorString = `[${queryEmbedding.join(',').replace(/\s/g, '')}]`;
+
     // Search for relevant chunks
     const { data: relevantChunks, error: searchError } = await supabase
       .rpc('vector_search_chunks', {
-        query_embedding: queryEmbedding,
+        query_embedding: vectorString,
         match_count: 5
       });
 

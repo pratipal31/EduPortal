@@ -76,12 +76,16 @@ export async function POST(req: NextRequest) {
 
     // Split into chunks
     const chunks = splitIntoChunks(fullText, 1000, 200);
-    console.log('Created chunks:', chunks.length);
+          console.log('Created chunks:', chunks.length);
 
     // Process each chunk and store in database
     const chunkPromises = chunks.map(async (chunk, index) => {
       try {
         const embedding = await generateHuggingFaceEmbedding(chunk);
+        
+        // Format embedding as PostgreSQL vector string
+        // Convert array [0.1, 0.2, 0.3] to string "[0.1,0.2,0.3]"
+        const vectorString = `[${embedding.join(',').replace(/\s/g, '')}]`;
         
         const { data, error } = await supabase
           .from('document_chunks')
@@ -89,7 +93,7 @@ export async function POST(req: NextRequest) {
             teacher_id: userData.id,
             document_title: documentTitle,
             chunk_text: chunk,
-            embedding: embedding,
+            embedding: vectorString, // Send as formatted string
           })
           .select();
 
