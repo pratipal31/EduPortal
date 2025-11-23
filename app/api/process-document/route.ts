@@ -4,14 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 import { auth } from '@clerk/nextjs/server';
 import { extractTextFromFile, splitIntoChunks, generateHuggingFaceEmbedding } from '@/lib/embeddings';
 
-// Configure Next.js to accept larger body sizes
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-  },
-};
+// Configure Next.js to accept larger body sizes (App Router)
+export const runtime = 'nodejs';
+
+// For App Router in Next.js 13+, use maxDuration instead
+export const maxDuration = 60;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
