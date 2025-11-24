@@ -1,81 +1,74 @@
-// app/api/generate-quiz/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { auth } from '@clerk/nextjs/server';
-import Groq from 'groq-sdk';
-import { generateHuggingFaceEmbedding } from '@/lib/embeddings';
+import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
+import { auth } from "@clerk/nextjs/server"
+import Groq from "groq-sdk"
+import { generateHuggingFaceEmbedding } from "@/lib/embeddings"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
-});
+})
 
 interface QuizConfig {
-  title: string;
-  description: string;
-  difficulty: 'easy' | 'medium' | 'hard' | 'advanced';
-  questionTypes: string[];
-  numQuestions: number;
-  duration: number;
-  passingScore: number;
-  documentIds?: string[];
+  title: string
+  description: string
+  difficulty: "easy" | "medium" | "hard" | "advanced"
+  questionTypes: string[]
+  numQuestions: number
+  duration: number
+  passingScore: number
 }
 
 export async function POST(req: NextRequest) {
   try {
     // Use await with auth() to get userId
-    const { userId } = await auth();
-    
+    const { userId } = await auth()
+
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized - Please sign in' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized - Please sign in" }, { status: 401 })
     }
 
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
+    const { data: userData } = await supabase.from("users").select("id").eq("clerk_id", userId).single()
 
     if (!userData) {
-      return NextResponse.json({ 
-        error: 'User not found in database' 
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: "User not found in database",
+        },
+        { status: 404 },
+      )
     }
 
-    const config: QuizConfig = await req.json();
+    const config: QuizConfig = await req.json()
 
-    console.log('Generating quiz with config:', config);
+    console.log("Generating quiz with config:", config)
 
-    // Step 1: Get relevant context from document chunks using RAG
-    const contextQuery = `${config.title} ${config.description}`;
-    const queryEmbedding = await generateHuggingFaceEmbedding(contextQuery);
+    // Step 1: Get relevant context from ALL document chunks using RAG
+    const contextQuery = `${config.title} ${config.description}`
+    const queryEmbedding = await generateHuggingFaceEmbedding(contextQuery)
 
-    console.log('Generated query embedding');
+    console.log("Generated query embedding")
 
     // Format embedding as PostgreSQL vector string
-    const vectorString = `[${queryEmbedding.join(',').replace(/\s/g, '')}]`;
+    const vectorString = `[${queryEmbedding.join(",").replace(/\s/g, "")}]`
 
-    // Search for relevant chunks
-    const { data: relevantChunks, error: searchError } = await supabase
-      .rpc('vector_search_chunks', {
-        query_embedding: vectorString,
-        match_count: 5
-      });
+    // Search for relevant chunks from all user's documents
+    const { data: relevantChunks, error: searchError } = await supabase.rpc("vector_search_chunks", {
+      query_embedding: vectorString,
+      match_count: 5,
+    })
 
     if (searchError) {
-      console.error('Search error:', searchError);
+      console.error("Search error:", searchError)
     }
 
     // Combine relevant chunks into context
-    const context = relevantChunks
-      ?.map((chunk: any) => chunk.chunk_text)
-      .join('\n\n') || 'No specific context available. Generate general questions on the topic.';
+    const context =
+      relevantChunks?.map((chunk: any) => chunk.chunk_text).join("\n\n") ||
+      "No specific context available. Generate general questions on the topic."
 
-    console.log('Context length:', context.length);
+    console.log("Context length:", context.length)
 
     // Step 2: Generate quiz using Groq with context
     const prompt = `You are an expert quiz generator. Generate a quiz based on the following context and requirements.
@@ -88,11 +81,11 @@ QUIZ REQUIREMENTS:
 - Description: ${config.description}
 - Difficulty: ${config.difficulty}
 - Number of questions: ${config.numQuestions}
-- Question types to include: ${config.questionTypes.join(', ')}
+- Question types to include: ${config.questionTypes.join(", ")}
 
 Generate exactly ${config.numQuestions} questions. For each question, provide:
 1. Question text
-2. Question type (one of: ${config.questionTypes.join(', ')})
+2. Question type (one of: ${config.questionTypes.join(", ")})
 3. Correct answer
 4. For multiple_choice: 4 options (one correct)
 5. For fill_in_blank: the blank answers as an array
@@ -115,44 +108,45 @@ Return ONLY a valid JSON object with this structure:
       "explanation": "string"
     }
   ]
-}`;
+}`
 
-    console.log('Calling Groq API...');
+    console.log("Calling Groq API...")
 
     const completion = await groq.chat.completions.create({
       messages: [
         {
-          role: 'system',
-          content: 'You are a quiz generator that returns only valid JSON. Never include markdown code blocks or explanations.'
+          role: "system",
+          content:
+            "You are a quiz generator that returns only valid JSON. Never include markdown code blocks or explanations.",
         },
         {
-          role: 'user',
-          content: prompt
-        }
+          role: "user",
+          content: prompt,
+        },
       ],
-      model: 'llama-3.3-70b-versatile',
+      model: "llama-3.3-70b-versatile",
       temperature: 0.7,
       max_tokens: 8000,
-    });
+    })
 
-    const responseText = completion.choices[0]?.message?.content || '';
-    console.log('Groq response received, length:', responseText.length);
-    
+    const responseText = completion.choices[0]?.message?.content || ""
+    console.log("Groq response received, length:", responseText.length)
+
     // Clean the response to extract JSON
-    let jsonText = responseText.trim();
-    if (jsonText.startsWith('```json')) {
-      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    let jsonText = responseText.trim()
+    if (jsonText.startsWith("```json")) {
+      jsonText = jsonText.replace(/```json\n?/g, "").replace(/```\n?/g, "")
     }
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/```\n?/g, '');
+    if (jsonText.startsWith("```")) {
+      jsonText = jsonText.replace(/```\n?/g, "")
     }
-    
-    const generatedQuestions = JSON.parse(jsonText);
-    console.log('Parsed questions:', generatedQuestions.questions.length);
+
+    const generatedQuestions = JSON.parse(jsonText)
+    console.log("Parsed questions:", generatedQuestions.questions.length)
 
     // Step 3: Create quiz in database
     const { data: quiz, error: quizError } = await supabase
-      .from('quizzes')
+      .from("quizzes")
       .insert({
         title: config.title,
         description: config.description,
@@ -163,14 +157,14 @@ Return ONLY a valid JSON object with this structure:
         is_published: false,
       })
       .select()
-      .single();
+      .single()
 
     if (quizError) {
-      console.error('Quiz creation error:', quizError);
-      throw new Error(`Failed to create quiz: ${quizError.message}`);
+      console.error("Quiz creation error:", quizError)
+      throw new Error(`Failed to create quiz: ${quizError.message}`)
     }
 
-    console.log('Quiz created:', quiz.id);
+    console.log("Quiz created:", quiz.id)
 
     // Step 4: Insert questions
     const questionsToInsert = generatedQuestions.questions.map((q: any, index: number) => ({
@@ -185,33 +179,33 @@ Return ONLY a valid JSON object with this structure:
       points: q.points || 1,
       explanation: q.explanation || null,
       order_index: index,
-    }));
+    }))
 
-    const { error: questionsError } = await supabase
-      .from('questions')
-      .insert(questionsToInsert);
+    const { error: questionsError } = await supabase.from("questions").insert(questionsToInsert)
 
     if (questionsError) {
-      console.error('Questions insertion error:', questionsError);
+      console.error("Questions insertion error:", questionsError)
       // Rollback: delete the quiz if questions fail
-      await supabase.from('quizzes').delete().eq('id', quiz.id);
-      throw new Error(`Failed to insert questions: ${questionsError.message}`);
+      await supabase.from("quizzes").delete().eq("id", quiz.id)
+      throw new Error(`Failed to insert questions: ${questionsError.message}`)
     }
 
-    console.log('Questions inserted successfully');
+    console.log("Questions inserted successfully")
 
     return NextResponse.json({
       success: true,
       quiz_id: quiz.id,
-      message: 'Quiz generated successfully',
+      message: "Quiz generated successfully from all uploaded documents",
       questions_count: questionsToInsert.length,
-    });
-
+    })
   } catch (error) {
-    console.error('Quiz generation error:', error);
-    return NextResponse.json({
-      error: 'Failed to generate quiz',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    console.error("Quiz generation error:", error)
+    return NextResponse.json(
+      {
+        error: "Failed to generate quiz",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
